@@ -1,0 +1,89 @@
+services:
+  api:
+    build: .
+    container_name: aedev-api
+    ports:
+      - "8000:8000"
+    environment:
+      ENABLE_INDEXING: "1"
+
+      QDRANT_URL: "http://aedev-qdrant:6333"
+      QDRANT_COLLECTION: "child_chunks"
+
+      ELASTIC_URL: "http://aedev-elasticsearch:9200"
+      ELASTIC_INDEX: "child_chunks"
+
+      K_VEC: "3"
+      K_LEX: "3"
+      RRF_K0: "60"
+      PARENT_ALPHA: "0.25"
+
+      PARENT_CHARS: "2500"
+      CHILD_CHARS: "300"
+
+      POSTGRES_DSN: "postgresql+psycopg://postgres:postgres@postgres:5432/aedev"
+
+      # HF cache
+      HF_HOME: "/app/.cache/hf"
+      SENTENCE_TRANSFORMERS_HOME: "/app/.cache/st"
+      TOKENIZERS_PARALLELISM: "false"
+
+      # авто-потоки (управляемо)
+      AE_AUTO_THREADS: "1"
+      AE_THREAD_CAP: "8"
+      
+      E5_BATCH_SIZE: "64"     # попробуй 64, потом 96/128
+      E5_DEVICE: "auto"
+      QDRANT_WAIT: "0"        # быстрее, но count будет догонять асинхронно
+      QDRANT_BATCH: "512"
+
+
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+      - ./hf_cache:/app/.cache
+
+    depends_on:
+      - postgres
+      - qdrant
+      - elasticsearch
+
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--access-log", "--log-level", "info"]
+
+  postgres:
+    image: postgres:15
+    container_name: aedev-postgres
+    environment:
+      POSTGRES_DB: aedev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: aedev-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: aedev-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+volumes:
+  pgdata:
+  qdrantdata:
+  esdata:

@@ -1,0 +1,13 @@
+{
+  "question": "пример вопроса",
+  "vec_hits": [
+    {"child_id":"c1","parent_id":"p1","doc_id":"docA","section_path":"7 > 7.8 > 7.8.1","text":"..."},
+    {"child_id":"c2","parent_id":"p2","doc_id":"docA","section_path":"7 > 7.9","text":"..."},
+    {"child_id":"c3","parent_id":"p1","doc_id":"docA","section_path":"7 > 7.8 > 7.8.1","text":"..."}
+  ],
+  "lex_hits": [
+    {"child_id":"c3","parent_id":"p1","doc_id":"docA","section_path":"7 > 7.8 > 7.8.1","text":"..."},
+    {"child_id":"c4","parent_id":"p3","doc_id":"docB","section_path":"Приложение К > К.1","text":"..."},
+    {"child_id":"c5","parent_id":"p2","doc_id":"docA","section_path":"7 > 7.9","text":"..."}
+  ]
+}

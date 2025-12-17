@@ -1,0 +1,12 @@
+hf_cache/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.DS_Store
+.env
+*.log
+
+# optional: datasets (лучше хранить вне git)
+data/kb/
+data/kb_txt/
