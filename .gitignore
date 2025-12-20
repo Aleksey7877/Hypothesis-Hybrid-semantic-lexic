@@ -10,3 +10,4 @@ __pycache__/
 # optional: datasets (лучше хранить вне git)
 data/kb/
 data/kb_txt/
+tmp/

@@ -4,67 +4,58 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class FusionConfig:
-    rrf_k: int = 60  # k0 в формуле RRF
+    k0: int = 60
+    w_qdrant: float = 1.0
+    w_elastic: float = 1.0
 
 
-def rrf_fuse_parents(
-    retriever_parent_ids: List[str],
-    elastic_parent_ids: List[str],
+def weighted_rrf_fuse(
+    qdrant_ids: List[str],
+    elastic_ids: List[str],
+    *,
     top_k: int,
-    cfg: FusionConfig = FusionConfig(),
+    cfg: FusionConfig | None = None,
 ) -> List[Dict[str, Any]]:
-    """
-    RRF по parent_id, без весов.
+    cfg = cfg or FusionConfig()
 
-    score(pid) = 1/(k0 + rank_retriever) + 1/(k0 + rank_elastic)
+    q_rank = {pid: i + 1 for i, pid in enumerate(qdrant_ids) if pid}
+    e_rank = {pid: i + 1 for i, pid in enumerate(elastic_ids) if pid}
 
-    Tie-break (если score одинаковый):
-      1) предпочтение retriever (если pid есть в retriever списке)
-      2) меньший rank_retriever
-      3) меньший rank_elastic
-      4) pid (стабильность)
-    """
-    k0 = int(cfg.rrf_k)
+    all_ids = set(q_rank) | set(e_rank)
+    rows: List[Dict[str, Any]] = []
 
-    r_rank: Dict[str, int] = {pid: i for i, pid in enumerate(retriever_parent_ids, start=1)}
-    e_rank: Dict[str, int] = {pid: i for i, pid in enumerate(elastic_parent_ids, start=1)}
-
-    all_ids = set(r_rank) | set(e_rank)
-
-    fused: List[Dict[str, Any]] = []
     for pid in all_ids:
-        rr: Optional[int] = r_rank.get(pid)
-        er: Optional[int] = e_rank.get(pid)
+        qr = q_rank.get(pid)
+        er = e_rank.get(pid)
 
         score = 0.0
-        if rr is not None:
-            score += 1.0 / (k0 + rr)
+        if qr is not None:
+            score += float(cfg.w_qdrant) / float(cfg.k0 + qr)
         if er is not None:
-            score += 1.0 / (k0 + er)
+            score += float(cfg.w_elastic) / float(cfg.k0 + er)
 
-        fused.append(
-            {
-                "parent_id": pid,
-                "score": float(score),
-                "rank_retriever": rr,
-                "rank_elastic": er,
-            }
+        if (qr is not None) and (er is not None):
+            src = "both"
+        elif qr is not None:
+            src = "qdrant"
+        else:
+            src = "elastic"
+
+        rows.append(
+            {"parent_id": pid, "rrf_score": score, "q_rank": qr, "e_rank": er, "source": src}
         )
 
-    # tie-break как ты просил: при равном score выигрывает retriever
-    def in_retriever(pid: str) -> int:
-        return 1 if pid in r_rank else 0
+    def _min_rank(x: Dict[str, Any]) -> int:
+        big = 10**9
+        qr = x.get("q_rank")
+        er = x.get("e_rank")
+        return min(qr if qr is not None else big, er if er is not None else big)
 
-    fused.sort(
-        key=lambda x: (
-            -x["score"],
-            -in_retriever(x["parent_id"]),               # tie -> retriever wins
-            x["rank_retriever"] if x["rank_retriever"] is not None else 10**9,
-            x["rank_elastic"] if x["rank_elastic"] is not None else 10**9,
-            x["parent_id"],
-        )
-    )
+    rows.sort(key=lambda x: (-float(x["rrf_score"]), _min_rank(x), x["parent_id"]))
 
-    return fused[:top_k]
+    out = rows[: int(top_k)]
+    for i, r in enumerate(out, start=1):
+        r["rank"] = i
+    return out
