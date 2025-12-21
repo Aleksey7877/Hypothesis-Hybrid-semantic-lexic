@@ -1,4 +1,5 @@
 # AE Dev RAG Retrieval (Experiment Skeleton)
+# Актуальную версию смотреть в ветке docs/search_fix1
 
 This repository implements:
 - DOCX parsing + structural chunking (parent/child)

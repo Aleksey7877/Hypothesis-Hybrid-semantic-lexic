@@ -11,7 +11,28 @@ services:
       QDRANT_COLLECTION: "child_chunks"
 
       ELASTIC_URL: "http://aedev-elasticsearch:9200"
-      ELASTIC_INDEX: "child_chunks"
+      ELASTIC_INDEX: "parent_chunks"
+      ENABLE_ELASTIC_INDEXING: "1"
+      ELASTIC_REFRESH: "1"
+
+      # --- RERANK ---
+      BGE_RERANK_MODEL: "BAAI/bge-reranker-v2-m3"
+      BGE_RERANK_CACHE_DIR: "/app/data/hf_cache"
+      BGE_RERANK_DEVICE: "cpu"          # "cuda" если реально есть GPU
+      BGE_RERANK_BATCH: "8"
+      BGE_RERANK_MAX_LEN: "512"
+      BGE_RERANK_FP16: "0"
+
+      # preload control
+      BGE_RERANK_PRELOAD: "1"
+      BGE_RERANK_PRELOAD_MODE: "blocking"   # "background" если хочешь быстрый старт API
+      BGE_RERANK_WARMUP: "1"
+
+      # HF cache (НЕ пихаем TRANSFORMERS_CACHE)
+      HF_HOME: "/app/data/hf_cache"
+      HF_HUB_CACHE: "/app/data/hf_cache"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
 
       K_VEC: "3"
       K_LEX: "3"
@@ -23,25 +44,17 @@ services:
 
       POSTGRES_DSN: "postgresql+psycopg://postgres:postgres@postgres:5432/aedev"
 
-      # HF cache
-      HF_HOME: "/app/.cache/hf"
-      SENTENCE_TRANSFORMERS_HOME: "/app/.cache/st"
-      TOKENIZERS_PARALLELISM: "false"
-
-      # авто-потоки (управляемо)
       AE_AUTO_THREADS: "1"
       AE_THREAD_CAP: "8"
-      
-      E5_BATCH_SIZE: "64"     # попробуй 64, потом 96/128
-      E5_DEVICE: "auto"
-      QDRANT_WAIT: "0"        # быстрее, но count будет догонять асинхронно
-      QDRANT_BATCH: "512"
 
+      E5_BATCH_SIZE: "64"
+      E5_DEVICE: "auto"
+      QDRANT_WAIT: "0"
+      QDRANT_BATCH: "512"
 
     volumes:
       - ./app:/app/app
       - ./data:/app/data
-      - ./hf_cache:/app/.cache
 
     depends_on:
       - postgres
@@ -67,6 +80,7 @@ services:
     container_name: aedev-qdrant
     ports:
       - "6333:6333"
+      - "6334:6334"
     volumes:
       - qdrantdata:/qdrant/storage
 
